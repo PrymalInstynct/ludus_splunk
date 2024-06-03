@@ -45,7 +45,6 @@
         repo: "{{ item.git_server | default(git_server) }}/{{ item.git_project | default(git_project) }}/{{ item.name }}"
         version: "{{ item.git_version | default(git_version) }}"
         dest: "{{ git_local_clone_path }}{{ ansible_nodename }}/{{ item.name }}"
-        key_file: "{{ git_key }}"
         force: true
       loop: "{{ git_apps }}"
       delegate_to: localhost
@@ -90,7 +89,6 @@
   # Conditional for block
   when:
     - git_apps is defined
-    - git_version is defined
-    - git_key != 'undefined'
-    - git_server != 'undefined'
-    - git_project != 'undefined'
+
+- name: Create Deployment Server serverclass.conf
+  include_tasks: configure_serverclass.yml
