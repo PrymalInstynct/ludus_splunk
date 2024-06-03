@@ -1,2 +1,2 @@
 environments/test
-roles/splunk/files/*.lic
+files/*.lic
