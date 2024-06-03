@@ -1,0 +1,8 @@
+---
+- name: install prerequisite packages
+  ansible.builtin.package:
+    name:
+      - acl
+      - logrotate
+    state: present
+  become: true
