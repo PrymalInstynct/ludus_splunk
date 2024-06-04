@@ -65,6 +65,10 @@
   include_tasks: configure_disable_mgmt_port.yml
   when: splunk_disable_mgmt_port
 
+- name: Include configure splunk listening port
+  include_tasks: configure_listening_port.yml
+  when: splunk_listening_port != 'undefined'
+
 - name: Include accept license task
   include_tasks: splunk_license_accept.yml
 

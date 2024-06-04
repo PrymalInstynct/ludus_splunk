@@ -1,0 +1,13 @@
+---
+- name: Configure Splunk Listening port
+  ini_file:
+    path: "{{ splunk_home }}/etc/apps/search/local/inputs.conf"
+    section: 'splunktcp://{{ splunk_listening_port }}'
+    option: connection_host
+    value: 'ip'
+    owner: "{{ splunk_nix_user }}"
+    group: "{{ splunk_nix_group }}"
+    mode: 0644
+  become: true
+  notify: restart splunk
+  when: splunk_listening_port != 'undefined'
