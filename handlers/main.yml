@@ -1,9 +1,9 @@
 ---
 # handlers file for splunk role
 # handlers are run in the order defined in this file
-# thus "set ulimits in init.d" has been placed at the top to ensure it runs before splunk is started
-- name: set ulimits in init.d
-  lineinfile:
+# thus "Set ulimits in init.d" has been placed at the top to ensure it runs before splunk is started
+- name: Set ulimits in init.d # noqa ignore-errors
+  ansible.builtin.lineinfile:
     path: /etc/init.d/splunk
     insertafter: ^\s+echo Starting Splunk\.\.\.$
     line: "{{ item }}"
@@ -15,27 +15,33 @@
   ignore_errors: true
   when: splunk_use_initd and ansible_os_family == "RedHat" and ansible_distribution_major_version|int > 6
 
-- name: reload systemctl daemon
+- name: Restart procps
+  ansible.builtin.service:
+    name: procps
+    state: restarted
+  become: true
+
+- name: Reload systemctl daemon
   when: ansible_service_mgr == "systemd"
-  systemd:
+  ansible.builtin.systemd:
     daemon_reload: true
   become: true
 
-- name: stop splunk
-  service:
+- name: Stop splunk
+  ansible.builtin.service:
     name: "{{ splunk_service }}"
     state: stopped
   become: true
 
-- name: start splunk
-  service:
+- name: Start splunk
+  ansible.builtin.service:
     name: "{{ splunk_service }}"
     state: started
   become: true
   register: start_splunk_handler_fired
 
-- name: apply indexer cluster bundle
-  command: "{{ splunk_home }}/bin/splunk apply cluster-bundle --answer-yes --skip-validation -auth {{ splunk_auth }}"
+- name: Apply indexer cluster bundle
+  ansible.builtin.command: "{{ splunk_home }}/bin/splunk apply cluster-bundle --answer-yes --skip-validation -auth {{ splunk_auth }}"
   become: true
   become_user: "{{ splunk_nix_user }}"
   register: apply_cluster_bundle_result
@@ -46,15 +52,16 @@
   no_log: true
   when: "'clustermanager' in group_names"
 
-- name: reload deployment server
-  command: "{{ splunk_home }}/bin/splunk reload deploy-server -auth {{ splunk_auth }}"
+- name: Reload deployment server
+  ansible.builtin.command: "{{ splunk_home }}/bin/splunk reload deploy-server -auth {{ splunk_auth }}"
   become: true
   become_user: "{{ splunk_nix_user }}"
   no_log: true
   when: "'deploymentserver' in group_names"
+  changed_when: false
 
-- name: apply shcluster-bundle
-  command: "{{ splunk_home }}/bin/splunk apply shcluster-bundle -preserve-lookups true --answer-yes -auth {{ splunk_auth }} -target {{ deploy_target }}"
+- name: Apply shcluster-bundle
+  ansible.builtin.command: "{{ splunk_home }}/bin/splunk apply shcluster-bundle -preserve-lookups true --answer-yes -auth {{ splunk_auth }} -target {{ deploy_target }}"
   become: true
   become_user: "{{ splunk_nix_user }}"
   register: apply_shcluster_bundle_result
@@ -65,33 +72,35 @@
   no_log: true
   when: "'shdeployer' in group_names and deploy_target is defined"
 
-- name: restart splunk
-  service:
+- name: Restart splunk
+  ansible.builtin.service:
     name: "{{ splunk_service }}"
     state: restarted
   become: true
   when: not start_splunk_handler_fired
 
-- name: restart redhat auditd service
-  shell: |
+- name: Restart redhat auditd service # noqa command-instead-of-module no-changed-when
+  ansible.builtin.shell: |
     service auditd stop
     service auditd start
   become: true
+  changed_when: false
   when: ansible_os_family == 'RedHat'
 
-- name: restart non-redhat auditd service
-  service:
+- name: Restart non-redhat auditd service
+  ansible.builtin.service:
     name: auditd
     state: restarted
   become: true
   when: ansible_os_family != 'RedHat'
 
-- name: wait for splunkd
-  wait_for:
+- name: Wait for splunkd
+  ansible.builtin.wait_for:
     port: "{{ splunkd_port }}"
     state: started
     delay: 5
 
-- name: reload firewalld
-  command: firewall-cmd --reload
+- name: Reload firewalld
+  ansible.builtin.command: firewall-cmd --reload
   become: true
+  changed_when: false

@@ -5,6 +5,7 @@ This ansible role was forked from [ansible-role-for-splunk](https://github.com/s
 ## Requirements
 
 - community.general
+- ansible.posix
 
 ## Role Variables
 See `default/main.yml`
@@ -243,7 +244,7 @@ ansible_ssh_private_key_file - The file path to the private key that the Ansible
 
 In addition, you may want to configure some of the optional variables that are mentioned in [roles/splunk/defaults/main.yml](https://github.com/splunk/ansible-role-for-splunk/blob/master/roles/splunk/defaults/main.yml) to manage things like splunk.secret, send Slack notifications, automatically install useful scripts or additional Linux packages, etc. For a full description of the configurable variables, refer to the comments in [roles/splunk/defaults/main.yml](https://github.com/splunk/ansible-role-for-splunk/blob/master/roles/splunk/defaults/main.yml) and be sure to read-up on the task descriptions in this README file.
 
-As of the v1.0.4 release for this role, an additional variable called `target_shc_group_name` must be defined in the host_vars for each SHC Deployer host. This variable tells Ansible which group of hosts in the inventory contain the SHC members that the SHC Deployer host is managing. This change improves the app deployment process for SHCs by performing a REST call to the first SH in the list from the inventory group whose name matches the value of `target_shc_group_name`. If the SHC is not in a ready state, then the play will halt and no changes will be made. It will also automatically grab the captain URI and use the captain as the deploy target for the `apply shcluster-bundle` handler. An example of how `target_shc_group_name` should be used has been included in the sample inventory at [environments/production/inventory.yml](https://github.com/splunk/ansible-role-for-splunk/blob/master/environments/production/inventory.yml).
+As of the v1.0.4 release for this role, an additional variable called `target_shc_group_name` must be defined in the host_vars for each SHC Deployer host. This variable tells Ansible which group of hosts in the inventory contain the SHC members that the SHC Deployer host is managing. This change improves the app deployment process for SHCs by performing a REST call to the first SH in the list from the inventory group whose name matches the value of `target_shc_group_name`. If the SHC is not in a ready state, then the play will halt and no changes will be made. It will also automatically grab the captain URI and use the captain as the deploy target for the `Apply shcluster-bundle` handler. An example of how `target_shc_group_name` should be used has been included in the sample inventory at [environments/production/inventory.yml](https://github.com/splunk/ansible-role-for-splunk/blob/master/environments/production/inventory.yml).
 
 In order to use the app management functionality, you will need to configure the following additional variables:
 ```
@@ -288,7 +289,7 @@ This section contains additional reference documentation.
 
 Note: Any task with an **adhoc** prefix means that it can be used independently as a `deployment_task` in a playbook. You can use the tasks to resolve various Splunk problems or perform one-time activities, such as decommissioning an indexer from an indexer cluster.
 
-- **adhoc_clean_dispatch.yml** - This task is intended to be used for restoring service to search heads should the dispatch directory become full. You should not need to use this task in a healthy environment, but it is at your disposal should the need arise. The task will stop splunk, remove all files in the dispatch directory, and then start splunk.
+- **adhoc_clean_dispatch.yml** - This task is intended to be used for restoring service to search heads should the dispatch directory become full. You should not need to use this task in a healthy environment, but it is at your disposal should the need arise. The task will Stop splunk, remove all files in the dispatch directory, and then Start splunk.
 - **adhoc_configure_hostname** - Configure a Splunk server's hostname using the value from inventory_hostname. It configures the system hostname, serverName in server.conf and host in inputs.conf. All Splunk configuration changes are made using the ini_file module, which will preserve any other existing configurations that may exist in server.conf and/or inputs.conf.
 - **adhoc_decom_indexer.yml** - Executes a splunk offline --enforce-counts command. This is useful when decommissioning one or more indexers from an indexer cluster.
 - **adhoc_fix_mongo.yml** - Use when Splunk is in a stopped state to fix mongodb/kvstore issues. This task ensures that permissions are set correctly on mongo's splunk.key file and deletes mongod.lock if it exists.

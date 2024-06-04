@@ -1,6 +1,6 @@
 ---
 - name: Ensure local folder is present
-  file:
+  ansible.builtin.file:
     path: "{{ splunk_home }}/etc/apps/search/local"
     state: directory
     owner: "{{ splunk_nix_user }}"
@@ -10,7 +10,7 @@
   when: splunk_listening_port != 'undefined'
 
 - name: Configure Splunk Listening port
-  ini_file:
+  community.general.ini_file:
     path: "{{ splunk_home }}/etc/apps/search/local/inputs.conf"
     section: 'splunktcp://{{ splunk_listening_port }}'
     option: connection_host
@@ -19,5 +19,5 @@
     group: "{{ splunk_nix_group }}"
     mode: '0644'
   become: true
-  notify: restart splunk
+  notify: Restart splunk
   when: splunk_listening_port != 'undefined'

@@ -1,17 +1,20 @@
 ---
-- include_tasks: splunk_stop.yml
+- name: Include Splunk Stop Task
+  ansible.builtin.include_tasks: splunk_stop.yml
 
 - name: Disable boot-start
-  command: "{{ splunk_home }}/bin/splunk disable boot-start"
+  ansible.builtin.command: "{{ splunk_home }}/bin/splunk disable boot-start"
   become: true
+  changed_when: false
 
 - name: Remove splunk folder
-  file:
+  ansible.builtin.file:
     path: "{{ splunk_home }}"
     state: absent
   become: true
 
 - name: Block for non-root splunk user removal
+  when: splunk_nix_user != 'root'
   block:
     - name: Remove nix splunk user
       ansible.builtin.user:
@@ -27,7 +30,6 @@
         state: absent
         local: "{{ local_os_group }}"
       become: true
-  when: splunk_nix_user != 'root'
 
 - name: Remove Disable-THP/Ulimit files
   block:
@@ -37,7 +39,7 @@
         state: absent
       become: true
       notify:
-        - reload systemctl daemon
+        - Reload systemctl daemon
       when:
         - not use_tuned_thp
         - ansible_connection != "docker"
@@ -53,8 +55,13 @@
 # Not removing DMesg ini config due to defaults on some systems breaking
 
 - name: Remove firewall artifacts
+  when:
+    - firewall_service != 'undefined'
+    - configure_firewall | bool
+    - "'full' in group_names"
   block:
     - name: Remove firewalld artifacts
+      when: firewall_service == "firewalld"
       block:
         - name: Remove splunk firewalld service
           ansible.builtin.file:
@@ -68,9 +75,8 @@
             permanent: true
             state: enabled
             immediate: true
-          notify: reload firewalld
+          notify: Reload firewalld
           become: true
-      when: firewall_service == "firewalld"
 
     - name: Remove UFW ports
       community.general.ufw:
@@ -83,12 +89,9 @@
       become: true
       loop: "{{ splunk_firewall_ports }}"
       when: firewall_service == "ufw"
-  when:
-    - firewall_service != 'undefined'
-    - configure_firewall != false
-    - "'full' in group_names"
 
 - name: Remove FACLs
+  when: not least_privileged
   block:
     - name: Remove setfacl to logrotate script
       ansible.builtin.lineinfile:
@@ -103,7 +106,7 @@
       register: result_auditd_conf
       become: true
 
-    - name: Remove line from /var/log/audit.log
+    - name: Remove line from /var/log/audit.log # noqa risky-file-permissions
       community.general.ini_file:
         path: /etc/audit/auditd.conf
         section: null
@@ -112,9 +115,6 @@
         state: present
       become: true
       notify:
-        - restart redhat auditd service
-        - restart non-redhat auditd service
+        - Restart redhat auditd service
+        - Restart non-redhat auditd service
       when: result_auditd_conf.stat.exists
-  when: not least_privileged
-
-# Todo: check for cron jobs/scripts and remove those if present

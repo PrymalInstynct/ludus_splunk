@@ -1,5 +1,5 @@
 ---
-- name: install prerequisite packages
+- name: Install prerequisite packages
   ansible.builtin.package:
     name:
       - acl

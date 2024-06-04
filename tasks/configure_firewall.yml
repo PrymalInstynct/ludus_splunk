@@ -1,11 +1,12 @@
 ---
-- name: Ensure {{ firewall_service }} package is installed
+- name: "Ensure {{ firewall_service }} package is installed"
   ansible.builtin.package:
     name: "{{ firewall_service }}"
     state: present
   become: true
 
 - name: Configure firewalld for Splunk
+  when: firewall_service == "firewalld"
   block:
     - name: Ensure firewalld is Started and Enabled
       ansible.builtin.systemd:
@@ -19,15 +20,16 @@
         src: firewalld_service.xml.j2
         dest: /etc/firewalld/services/{{ splunk_firewall_service }}.xml
         backup: true
-        mode: 0644
+        mode: '0644'
         owner: root
         group: root
       become: true
       register: firewalld
 
-    - name: reload firewalld
-      command: firewall-cmd --reload
+    - name: Reload firewalld # noqa no-handler
+      ansible.builtin.command: firewall-cmd --reload
       become: true
+      changed_when: false
       when: firewalld.changed
 
     - name: Activate splunk firewalld service
@@ -36,11 +38,11 @@
         permanent: true
         state: enabled
         immediate: true
-      notify: reload firewalld
+      notify: Reload firewalld
       become: true
-  when: firewall_service == "firewalld"
 
 - name: Configure UFW for Splunk
+  when: firewall_service == "ufw"
   block:
     - name: Ensure SSH is enabled
       community.general.ufw:
@@ -59,4 +61,3 @@
         comment: "{{ item.desc | default('') }}"
       become: true
       loop: "{{ splunk_firewall_ports }}"
-  when: firewall_service == "ufw"

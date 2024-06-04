@@ -1,12 +1,11 @@
 galaxy_info:
+  role_name: ludus_splunk
+  namespace: prymalinstynct
   author: Mason Morales <mason@splunk.com>
   description: Splunk's official Ansible role for installing Splunk, upgrading Splunk, and installing apps/addons from Git repositories to Splunk deployments
   company: Splunk Inc.
-
   license: Apache-2.0
-
   min_ansible_version: "2.7"
-
   platforms:
     - name: EL
       versions:
@@ -30,7 +29,6 @@ galaxy_info:
         - buster
         - bullseye
         - bookworm
-
   galaxy_tags:
     - splunk
     - splunkforwarder

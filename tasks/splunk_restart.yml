@@ -1,6 +1,6 @@
 ---
-- name: Restart splunk
-  service:
+- name: ReStart splunk
+  ansible.builtin.service:
     name: "{{ splunk_service }}"
     state: restarted
   become: true
