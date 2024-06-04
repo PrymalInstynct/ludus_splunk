@@ -1,4 +1,167 @@
-# ansible-role-for-splunk: An Ansible role for Splunk admins
+# Ansible Role: Deploying Splunk in a [Ludus Cyber Range](https://ludus.cloud)
+
+This ansible role was forked from [ansible-role-for-splunk](https://github.com/splunk/ansible-role-for-splunk/tree/master) and updated to support deployment to Ludus Cyber Ranges
+
+## Requirements
+
+- community.general
+
+## Role Variables
+See `default/main.yml`
+
+## Dependencies
+
+None.
+
+## Example Ludus Range Config
+
+```yaml
+ludus:
+  # Splunk Search Head/Indexer/LicenseManager
+  - vm_name: "{{ range_id }}-splunk"
+    hostname: "{{ range_id }}-splunk"
+    template: debian-12-x64-server-template
+    vlan: 20
+    ip_last_octet: 1
+    ram_gb: 16
+    cpus: 8
+    linux: true
+    testing:
+      snapshot: false
+      block_internet: false
+    ansible_groups:
+      - full
+      - search
+      - licensemaster
+    roles:
+      - PrymalInstynct.ludus_splunk
+    role_vars:
+      deployment_task: check_splunk.yml
+      splunk_package_path: /var/tmp
+      splunk_nix_user: root
+      splunk_nix_group: root
+      splunk_admin_username: admin
+      splunk_admin_password: changeme123!
+      splunk_listening_port: '9997'
+      splunk_license_file:
+        - splunk.lic
+      splunk_license_group: Enterprise
+      git_local_clone_path: /var/tmp/
+      git_apps:
+        - name: Splunk_TA_nix
+          git_version: main
+          git_server: https://github.com
+          git_project: PrymalInstynct
+        - name: TA_laurel
+          git_version: main
+          git_server: https://github.com
+          git_project: PrymalInstynct
+  # Splunk Deployment Server
+  - vm_name: "{{ range_id }}-ds"
+    hostname: "{{ range_id }}-ds"
+    template: debian-12-x64-server-template
+    vlan: 20
+    ip_last_octet: 2
+    ram_gb: 4
+    cpus: 2
+    linux: true
+    testing:
+      snapshot: false
+      block_internet: false
+    ansible_groups:
+      - full
+      - deploymentserver
+    roles:
+      - PrymalInstynct.ludus_splunk
+    role_vars:
+      deployment_task: check_splunk.yml
+      splunk_package_path: /var/tmp
+      splunk_nix_user: root
+      splunk_nix_group: root
+      splunk_admin_username: admin
+      splunk_admin_password: changeme123!
+      splunk_uri_lm: 10.2.20.1:8089
+      splunk_app_deploy_path: etc/deployment-apps
+      git_local_clone_path: /var/tmp/
+      git_apps:
+        - name: Splunk_TA_nix
+          git_version: main
+          git_server: https://github.com
+          git_project: PrymalInstynct
+        - name: Splunk_TA_fwd_outputs
+          git_version: main
+          git_server: https://github.com
+          git_project: PrymalInstynct
+        - name: TA_laurel
+          git_version: main
+          git_server: https://github.com
+          git_project: PrymalInstynct
+      serverclasses:
+        - serverclass: ALL
+          whitelist:
+            - "*"
+          apps:
+            - name: Splunk_TA_fwd_outputs
+              options:
+                restartSplunkd: 1
+        - serverclass: ALL_NIX
+          whitelist:
+            - '*'
+          platform: linux-x86_64
+          apps:
+            - name: Splunk_TA_nix
+              options:
+                restartSplunkd: 1
+            - name: TA_laurel
+              options:
+                restartSplunkd: 0
+  # VM with Splunk Universal Forwarder Installed and connected to Deployment Server
+  - vm_name: "{{ range_id }}-webserver01"
+    hostname: "{{ range_id }}-webserver01"
+    template: debian-12-x64-server-template
+    vlan: 10
+    ip_last_octet: 10
+    ram_gb: 4
+    cpus: 2
+    linux: true
+    ansible_groups:
+      - uf
+    roles:
+      - juju4.auditd
+      - PrymalInstynct.ansible_laurel
+      - PrymalInstynct.ludus_splunk
+    role_vars:
+      deployment_task: check_splunk.yml
+      splunk_package_path: /var/tmp
+      splunk_nix_user: root
+      splunk_nix_group: root
+      splunk_admin_username: admin
+      splunk_admin_password: changeme123!
+      splunk_uri_ds: 10.2.20.2:8089
+      clientName: "{{ range_id }}-webserver01"
+      audisp_syslog_enable: false
+      auditd_log_all_execve: true
+      auditd_rule_rootcmd_all: true
+      auditd_reporting: false
+```
+
+## Usage Instructions
+In the above Ludus Range configuration the first VM will be the Search Head, Indexer, and License Manager. The second VM will act as the Deployment Server to automatically configure the Universal forwarders deployment into the range. The last VM is an example debian 12 host with Auditd and Laurel configured for audit log generation.
+
+- `ludus ansible role add PrymalInstynct.ludus_splunk`
+- scp splunk.lic user@ludus_ip:/opt/ludus/users/user/.ansible/roles/PrymalInstynct.ludus_splunk/files
+  - **NOTE:** If you do not have a Splunk license a 10GB/Day Developer license can be requested from [dev.splunk.com](https://dev.splunk.com/enterprise/). It will take a few days for the request to be processed.
+- Update the `splunk_uri_ds` and `splunk_uri_lm` role_vars to match your Range_ID subnet
+- Deploy the ludus range first with the 2 Splunk VMs having their deployment_task role_var set to `check_splunk.yml`.
+  - This will install the Splunk Enterprise software.
+- Change the ludus range config for the 2 Splunk VMs to have their deployment_task role_var set to `configure_apps.yml`.
+- Run the `ludus range deploy` command a second time
+  - This will install the defined Splunk Apps from Git into the appropriate location on the Search Head and Deployment Server
+  - **NOTE:** The official role from Splunk only support deploying Splunk Apps from a Git Repository. So it is expected that any apps you want installed will be pulled from [SplunkBase](https://splunkbase.com) if the source is not already present on a Git Server uploaded to a place like [GitHub](https://github.com).
+
+
+# The Content below is from the original role
+## ansible-role-for-splunk: An Ansible role for Splunk admins
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)&nbsp;
 [![GitHub release](https://img.shields.io/github/v/tag/splunk/ansible-role-for-splunk?sort=semver&label=Version)](https://github.com/splunk/ansible-role-for-splunk/releases)
@@ -9,7 +172,7 @@ ansible-role-for-splunk is used by the Splunk@Splunk team to manage Splunk's cor
 
 ----
 
-## Table of Contents
+### Table of Contents
 
 1. [Purpose](#purpose)
 1. [Getting Started](#getting-started)
@@ -20,7 +183,7 @@ ansible-role-for-splunk is used by the Splunk@Splunk team to manage Splunk's cor
 
 ----
 
-## Purpose
+### Purpose
 
 #### What is ansible-role-for-splunk?
 ansible-role-for-splunk is a single Ansible role for deploying and administering production Splunk deployments. It supports all Splunk deployment roles (Universal Forwarder, Heavy Forwarder, Indexer, Search Head, Deployment Server, Cluster Master, SHC Deployer, DMC, License Master) as well as management of all apps and configurations (via git repositories).
@@ -39,7 +202,7 @@ Third, ansible-role-for-splunk was designed to manage all Splunk configurations 
 1. Configuring deploymentclient.conf for Deployment Server (DS) clients. We realize that some environments may have hundreds of clientNames configured and that creating a git repository for each variation would be pretty inefficient. Therefore, we support configuring deploymentclient.conf for your Ansible-managed forwarders using variables. The current version is based on a single template that supports only the clientName and targetUri keys. However, this can be easily extended with additional variables (or static content) of your choosing.
 1. Deployment of a new search head cluster. In order to initialize a new search head cluster, we cannot rely solely on creating backend files. Therefore, the role supports deploy a new search head cluster using provided variable values that are stored in your Ansible configurations (preferably via group_vars, although host_vars or inventory variables will also work).
 
-## Getting Started
+### Getting Started
 Getting started with this role will requires you to:
 1. Install Ansible (version >=v2.7 is supported and should work through v2.10)
 1. Setup your inventory correctly
@@ -183,7 +346,7 @@ Note: Any task with an **adhoc** prefix means that it can be used independently 
 **A:** This is due to a [known Ansible bug](https://github.com/ansible/ansible/issues/56629) related to password-based authentication. To workaround this issue, use a key pair for SSH authentication instead by setting the `ansible_user` and `ansible_ssh_private_key_file` variables.
 ##
 
-## Support
+### Support
 If you have questions or need support, you can:
 
 * Use the [GitHub issue tracker](https://github.com/splunk/splunk-ansible/issues) to submit bugs or request features.
