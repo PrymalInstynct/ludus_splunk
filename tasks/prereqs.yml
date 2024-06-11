@@ -4,5 +4,6 @@
     name:
       - acl
       - logrotate
+      - ca-certificates
     state: present
   become: true
